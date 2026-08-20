@@ -1,0 +1,32 @@
+{
+  "nodes": [
+    {
+      "id": "redis",
+      "title": "Redis",
+      "parentId": "backend",
+      "posX": 280,
+      "posY": 320
+    },
+    {
+      "id": "websockets",
+      "title": "WebSockets",
+      "parentId": "backend",
+      "posX": 280,
+      "posY": 400
+    },
+    {
+      "id": "docker",
+      "title": "Docker",
+      "parentId": null,
+      "posX": 0,
+      "posY": 640
+    },
+    {
+      "id": "git",
+      "title": "Git",
+      "parentId": null,
+      "posX": 0,
+      "posY": 760
+    }
+  ]
+}

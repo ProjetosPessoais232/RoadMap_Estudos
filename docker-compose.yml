@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: roadmap-postgres
+    environment:
+      POSTGRES_DB: roadmap
+      POSTGRES_USER: roadmap
+      POSTGRES_PASSWORD: roadmap
+    ports:
+      - "5432:5432"
+    volumes:
+      - roadmap_pg:/var/lib/postgresql/data
+
+volumes:
+  roadmap_pg:
