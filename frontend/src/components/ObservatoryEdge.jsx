@@ -8,7 +8,9 @@ export default function ObservatoryEdge({
   targetY,
   sourcePosition,
   targetPosition,
+  data,
 }) {
+  const option = data?.variant === 'option'
   const [path] = getSmoothStepPath({
     sourceX,
     sourceY,
@@ -16,18 +18,17 @@ export default function ObservatoryEdge({
     targetY,
     sourcePosition,
     targetPosition,
+    borderRadius: 0,
   })
 
   return (
-    <g>
-      <path
-        id={id}
-        d={path}
-        fill="none"
-        stroke="var(--color-hairline)"
-        strokeWidth={1}
-      />
-      <circle cx={targetX} cy={targetY} r={2} fill="var(--color-ink-tertiary)" />
-    </g>
+    <path
+      id={id}
+      d={path}
+      fill="none"
+      stroke={option ? 'var(--color-hairline)' : 'var(--color-hairline-strong)'}
+      strokeWidth={option ? 1 : 1.5}
+      strokeDasharray={option ? '2 4' : undefined}
+    />
   )
 }

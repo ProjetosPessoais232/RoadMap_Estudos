@@ -1,35 +1,34 @@
 import { Handle, Position } from '@xyflow/react'
+import StatusDot from './StatusDot.jsx'
 
-const STATUS = {
-  NOT_STARTED: 'border-hairline bg-transparent text-ink-tertiary',
-  IN_PROGRESS: 'border-copper bg-copper-dim text-ink-primary',
-  COMPLETED: 'border-status-done bg-surface-raised text-ink-primary',
-}
+const handleClass = '!h-1.5 !w-1.5 !border-0 !bg-ink-tertiary'
 
 export default function TechNode({ data, selected }) {
-  const status = STATUS[data.status] ?? STATUS.NOT_STARTED
-  const idle = data.status === 'NOT_STARTED'
+  const option = data.role === 'option'
 
   return (
     <div
-      className={`tech-node min-w-[160px] border px-4 py-3 transition-transform duration-150 ease-out hover:scale-[1.01] ${status} ${
-        selected ? 'border-hairline-strong' : ''
-      } ${data.highlighted ? 'tech-node-ai' : ''}`}
+      className={`tech-node relative px-3.5 py-2.5 ${
+        option
+          ? 'w-[168px] border border-hairline bg-surface'
+          : 'min-w-[176px] border-[1.5px] border-accent bg-accent-dim'
+      } ${selected && option ? 'border-hairline-strong' : ''} ${data.highlighted ? 'tech-node-ai' : ''}`}
     >
-      <Handle
-        type="target"
-        position={Position.Left}
-        className="!h-1.5 !w-1.5 !border-0 !bg-ink-tertiary"
-      />
-      <p className={`font-sans text-[15px] font-bold leading-snug tracking-tight ${idle ? 'text-ink-tertiary' : 'text-ink-primary'}`}>
+      <Handle type="target" id="in" position={Position.Left} className={handleClass} />
+      <Handle type="source" id="out" position={Position.Right} className={handleClass} />
+      <span className="absolute right-1.5 top-1.5">
+        <StatusDot status={data.status} />
+      </span>
+      <p
+        className={`pr-5 leading-snug tracking-tight ${
+          option
+            ? 'font-sans text-[13px] font-medium text-ink-secondary'
+            : 'font-display text-[15px] font-semibold text-ink-primary'
+        }`}
+      >
         {data.title}
       </p>
-      <p className="mt-0.5 font-sans text-[11px] font-medium tracking-wide text-ink-tertiary">{data.nodeId}</p>
-      <Handle
-        type="source"
-        position={Position.Right}
-        className="!h-1.5 !w-1.5 !border-0 !bg-ink-tertiary"
-      />
+      <p className="mt-0.5 font-mono text-[11px] font-medium tracking-wide text-ink-tertiary">{data.nodeId}</p>
     </div>
   )
 }

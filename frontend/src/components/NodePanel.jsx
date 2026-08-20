@@ -8,20 +8,18 @@ import {
   updateNode,
   updateNodeStatus,
 } from '../api'
-
-const STATUS_LABEL = {
-  NOT_STARTED: 'Não iniciado',
-  IN_PROGRESS: 'Em progresso',
-  COMPLETED: 'Concluído',
-}
+import { nextOptionPosition } from '../layout'
+import StatusDot, { STATUS_LEGEND } from './StatusDot.jsx'
 
 const emptyCourse = { name: '', platform: '', url: '' }
 
 const inputClass =
-  'w-full border-0 border-b border-hairline bg-transparent px-0 py-2 text-[14px] text-ink-primary outline-none placeholder:text-ink-tertiary focus:border-copper'
-const labelClass = 'font-mono text-[11px] uppercase tracking-[0.08em] text-ink-tertiary'
+  'w-full border-0 border-b border-hairline bg-transparent px-0 py-2 text-[14px] font-medium text-ink-primary outline-none placeholder:text-ink-tertiary'
+const labelClass = 'font-sans text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-tertiary'
+const textAction =
+  'text-[13px] font-semibold text-ink-secondary underline-offset-4 hover:text-accent hover:underline'
 
-export default function NodePanel({ node, onChanged, onDeleted, onError }) {
+export default function NodePanel({ node, childrenNodes = [], onChanged, onDeleted, onError }) {
   const [title, setTitle] = useState(node.title)
   const [courses, setCourses] = useState([])
   const [loadingCourses, setLoadingCourses] = useState(true)
@@ -75,13 +73,14 @@ export default function NodePanel({ node, onChanged, onDeleted, onError }) {
 
   async function addChild(event) {
     event.preventDefault()
+    const slot = nextOptionPosition(node, childrenNodes.length)
     try {
       const created = await createNode({
         id: childId.trim().toLowerCase(),
         title: childTitle.trim(),
         parentId: node.id,
-        posX: (node.posX ?? 0) + 240,
-        posY: (node.posY ?? 0) + 80,
+        posX: slot.posX,
+        posY: slot.posY,
       })
       setChildId('')
       setChildTitle('')
@@ -114,35 +113,32 @@ export default function NodePanel({ node, onChanged, onDeleted, onError }) {
   return (
     <aside className="flex h-full w-[360px] shrink-0 flex-col overflow-y-auto border-l border-hairline bg-surface px-5 py-6">
       <p className={labelClass}>Nó</p>
-      <h2 className="mt-2 font-display text-[22px] font-normal leading-tight text-ink-primary">{node.title}</h2>
-      <p className="mt-1 font-mono text-[11px] tracking-wide text-ink-tertiary">{node.id}</p>
+      <h2 className="mt-2 font-display text-[22px] font-semibold leading-tight text-ink-primary">{node.title}</h2>
+      <p className="mt-1 font-mono text-[11px] font-medium tracking-wide text-ink-tertiary">{node.id}</p>
 
       <form className="mt-8 space-y-3" onSubmit={saveTitle}>
         <label className={labelClass}>Título</label>
         <input className={inputClass} value={title} onChange={(event) => setTitle(event.target.value)} />
-        <button
-          className="text-[13px] text-ink-secondary underline-offset-4 transition-colors duration-150 hover:text-copper hover:underline"
-          type="submit"
-        >
+        <button className={textAction} type="submit">
           Salvar título
         </button>
       </form>
 
       <p className={`${labelClass} mt-8`}>Progresso</p>
       <div className="mt-3 space-y-2">
-        {Object.entries(STATUS_LABEL).map(([value, label]) => {
-          const active = node.status === value
+        {STATUS_LEGEND.map((item) => {
+          const active = node.status === item.status
           return (
             <button
-              key={value}
+              key={item.status}
               type="button"
-              className={`flex w-full items-center gap-2.5 text-left text-[14px] transition-colors duration-150 ${
+              className={`flex w-full items-center gap-2.5 text-left text-[14px] font-medium ${
                 active ? 'text-ink-primary' : 'text-ink-tertiary hover:text-ink-secondary'
               }`}
-              onClick={() => changeStatus(value)}
+              onClick={() => changeStatus(item.status)}
             >
-              <StatusMark status={value} active={active} />
-              {label}
+              <StatusDot status={item.status} />
+              {item.label}
             </button>
           )
         })}
@@ -152,15 +148,15 @@ export default function NodePanel({ node, onChanged, onDeleted, onError }) {
         <h3 className={labelClass}>Cursos</h3>
         {loadingCourses && <p className="mt-3 text-[12px] text-ink-tertiary">Carregando cursos…</p>}
         {!loadingCourses && courses.length === 0 && (
-          <p className="empty-fade mt-3 text-[13px] leading-relaxed text-ink-secondary">Nenhum curso neste nó ainda.</p>
+          <p className="empty-fade mt-3 text-[13px] leading-[1.65] text-ink-secondary">Nenhum curso neste nó ainda.</p>
         )}
         <ul className="mt-4 space-y-4">
           {courses.map((course) => (
             <li key={course.id} className="border-l border-hairline pl-3">
-              <p className="text-[14px] text-ink-primary">{course.name}</p>
-              <p className="font-mono text-[11px] tracking-wide text-ink-tertiary">{course.platform}</p>
+              <p className="text-[14px] font-medium text-ink-primary">{course.name}</p>
+              <p className="font-mono text-[11px] font-medium tracking-wide text-ink-tertiary">{course.platform}</p>
               <a
-                className="text-[12px] text-ink-secondary underline-offset-4 hover:text-copper hover:underline"
+                className="text-[12px] font-medium text-ink-secondary underline-offset-4 hover:text-accent hover:underline"
                 href={course.url}
                 target="_blank"
                 rel="noreferrer"
@@ -168,7 +164,7 @@ export default function NodePanel({ node, onChanged, onDeleted, onError }) {
                 abrir
               </a>
               <button
-                className="ml-3 text-[12px] text-danger/80 hover:text-danger"
+                className="ml-3 text-[12px] font-medium text-danger/80 hover:text-danger"
                 type="button"
                 onClick={() => removeCourse(course.id)}
               >
@@ -199,10 +195,7 @@ export default function NodePanel({ node, onChanged, onDeleted, onError }) {
             value={courseForm.url}
             onChange={(event) => setCourseForm({ ...courseForm, url: event.target.value })}
           />
-          <button
-            className="text-[13px] text-ink-secondary underline-offset-4 hover:text-copper hover:underline"
-            type="submit"
-          >
+          <button className={textAction} type="submit">
             Adicionar curso
           </button>
         </form>
@@ -210,7 +203,19 @@ export default function NodePanel({ node, onChanged, onDeleted, onError }) {
 
       <section className="mt-8">
         <h3 className={labelClass}>Filhos</h3>
-        <form className="mt-3 ml-3 space-y-3 border-l border-hairline pl-3" onSubmit={addChild}>
+        {childrenNodes.length === 0 ? (
+          <p className="empty-fade mt-3 text-[13px] leading-[1.65] text-ink-secondary">Nenhum filho neste nó.</p>
+        ) : (
+          <ul className="mt-3 ml-3 space-y-1.5 border-l border-hairline pl-3">
+            {childrenNodes.map((child) => (
+              <li key={child.id} className="font-mono text-[12px] font-medium text-ink-secondary">
+                {child.id}
+                <span className="text-ink-tertiary"> — {child.title}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <form className="mt-4 ml-3 space-y-3 border-l border-hairline pl-3" onSubmit={addChild}>
           <input
             className={`${inputClass} font-mono text-[13px]`}
             placeholder="id slug (ex: redis)"
@@ -223,49 +228,19 @@ export default function NodePanel({ node, onChanged, onDeleted, onError }) {
             value={childTitle}
             onChange={(event) => setChildTitle(event.target.value)}
           />
-          <button
-            className="font-mono text-[12px] text-ink-secondary underline-offset-4 hover:text-copper hover:underline"
-            type="submit"
-          >
+          <button className={`font-mono text-[12px] ${textAction}`} type="submit">
             Criar filho
           </button>
         </form>
       </section>
 
       <button
-        className="mt-auto pt-8 text-left text-[13px] text-danger/80 hover:text-danger"
+        className="mt-auto pt-8 text-left text-[13px] font-medium text-danger/80 hover:text-danger"
         type="button"
         onClick={removeNode}
       >
         Remover nó
       </button>
     </aside>
-  )
-}
-
-function StatusMark({ status, active }) {
-  if (status === 'IN_PROGRESS') {
-    return (
-      <span
-        className={`inline-block h-1.5 w-1.5 rounded-full ${active ? 'bg-copper' : 'bg-ink-tertiary/40'}`}
-        aria-hidden="true"
-      />
-    )
-  }
-  if (status === 'COMPLETED') {
-    return (
-      <span
-        className={`inline-block h-1.5 w-1.5 ${active ? 'bg-status-done' : 'bg-ink-tertiary/40'}`}
-        aria-hidden="true"
-      />
-    )
-  }
-  return (
-    <span
-      className={`inline-block h-1.5 w-1.5 rounded-full border ${
-        active ? 'border-ink-secondary' : 'border-ink-tertiary/50'
-      }`}
-      aria-hidden="true"
-    />
   )
 }

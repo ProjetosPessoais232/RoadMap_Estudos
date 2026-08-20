@@ -11,7 +11,7 @@ import {
   recommendArchitecture,
   updateNode,
 } from './api'
-import { layoutWithDagre, needsAutoLayout, toFlowElements } from './layout'
+import { layoutOptionClusters, layoutWithDagre, needsAutoLayout, toFlowElements } from './layout'
 import ArchitectPanel from './components/ArchitectPanel.jsx'
 import ChatPage from './components/ChatPage.jsx'
 import LoginPage from './components/LoginPage.jsx'
@@ -40,7 +40,7 @@ export default function App() {
     try {
       const [healthResponse, nodeList] = await Promise.all([getHealth(), listNodes()])
       setHealth(healthResponse.status)
-      setNodes(needsAutoLayout(nodeList) ? layoutWithDagre(nodeList) : nodeList)
+      setNodes(needsAutoLayout(nodeList) ? layoutWithDagre(nodeList) : layoutOptionClusters(nodeList))
       setError('')
     } catch (err) {
       setHealth('offline')
@@ -181,16 +181,17 @@ export default function App() {
             setArchitect(null)
             setHighlightedIds([])
           }}
+          onHighlightNode={(id) => setHighlightedIds([id])}
         />
         <div className="relative min-w-0 flex-1">
           {loadingNodes && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-void/80 text-[13px] text-ink-secondary">
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-surface/85 text-[13px] font-medium text-ink-secondary backdrop-blur-sm">
               Carregando roadmap…
             </div>
           )}
           {!loadingNodes && nodes.length === 0 && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 px-6 text-center">
-              <p className="empty-fade font-display text-[22px] text-ink-primary">Nenhum nó cadastrado.</p>
+              <p className="empty-fade font-display text-[22px] font-semibold text-ink-primary">Nenhum nó cadastrado.</p>
               <p className="empty-fade empty-fade-2 text-[13px] text-ink-secondary">
                 Use “Nova raiz” ou “Importar amostra” no menu ⋯
               </p>
@@ -206,6 +207,7 @@ export default function App() {
         {selected ? (
           <NodePanel
             node={selected}
+            childrenNodes={nodes.filter((item) => item.parentId === selected.id)}
             onChanged={upsertNode}
             onDeleted={(id) => {
               setNodes((current) => current.filter((node) => node.id !== id))
@@ -214,8 +216,8 @@ export default function App() {
             onError={setError}
           />
         ) : (
-          <aside className="hidden w-[280px] shrink-0 border-l border-hairline bg-surface px-5 py-8 text-[14px] leading-relaxed text-ink-secondary lg:block">
-            <p className="empty-fade font-mono text-[11px] uppercase tracking-[0.08em] text-ink-tertiary">Nó</p>
+          <aside className="hidden w-[280px] shrink-0 border-l border-hairline bg-surface px-5 py-8 text-[14px] leading-[1.65] text-ink-secondary lg:block">
+            <p className="empty-fade font-sans text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-tertiary">Nó</p>
             <p className="empty-fade empty-fade-2 mt-3">Clique em um nó para editar status, cursos e filhos.</p>
           </aside>
         )}
@@ -257,14 +259,14 @@ function ShellHeader({
   return (
     <header className="relative z-20 flex h-12 shrink-0 items-center justify-between border-b border-hairline bg-surface px-5">
       <div className="flex min-w-0 items-center gap-8">
-        <h1 className="font-display text-[17px] font-normal tracking-tight text-ink-primary">
+        <h1 className="font-display text-[17px] font-semibold tracking-tight text-ink-primary">
           LMS de Estudos
         </h1>
         <nav className="flex items-center gap-6">
           <button
-            className={`border-b pb-px text-[13px] tracking-wide transition-colors duration-150 ${
+            className={`border-b pb-px text-[13px] font-semibold tracking-wide ${
               page === 'roadmap'
-                ? 'border-copper text-ink-primary'
+                ? 'border-accent text-ink-primary'
                 : 'border-transparent text-ink-secondary hover:text-ink-primary'
             }`}
             type="button"
@@ -273,9 +275,9 @@ function ShellHeader({
             Roadmap
           </button>
           <button
-            className={`border-b pb-px text-[13px] tracking-wide transition-colors duration-150 ${
+            className={`border-b pb-px text-[13px] font-semibold tracking-wide ${
               page === 'chat'
-                ? 'border-copper text-ink-primary'
+                ? 'border-accent text-ink-primary'
                 : 'border-transparent text-ink-secondary hover:text-ink-primary'
             }`}
             type="button"
@@ -287,7 +289,7 @@ function ShellHeader({
       </div>
 
       <div className="flex items-center gap-3">
-        <p className="hidden max-w-[180px] truncate font-mono text-[11px] tracking-wide text-ink-tertiary md:block">
+        <p className="hidden max-w-[180px] truncate font-mono text-[11px] font-medium tracking-wide text-ink-tertiary md:block">
           {session.email}
         </p>
         <div className="relative" ref={menuRef}>
@@ -295,7 +297,7 @@ function ShellHeader({
             aria-expanded={menuOpen}
             aria-haspopup="menu"
             aria-label="Abrir menu"
-            className="flex h-8 w-8 items-center justify-center text-ink-secondary transition-colors duration-150 hover:text-ink-primary"
+            className="flex h-8 w-8 items-center justify-center text-ink-secondary hover:text-ink-primary"
             type="button"
             onClick={() => setMenuOpen((open) => !open)}
           >
@@ -303,11 +305,11 @@ function ShellHeader({
           </button>
           {menuOpen && (
             <div
-              className="absolute right-0 top-[calc(100%+8px)] w-64 border border-hairline bg-surface/80 p-3 shadow-none backdrop-blur-md"
+              className="shadow-soft absolute right-0 top-[calc(100%+8px)] w-64 border border-hairline bg-surface/85 p-3 backdrop-blur-md"
               role="menu"
             >
-              <p className="truncate font-mono text-[11px] tracking-wide text-ink-secondary">{session.email}</p>
-              <p className="mt-1 font-mono text-[11px] tracking-wide text-ink-tertiary">
+              <p className="truncate font-mono text-[11px] font-medium tracking-wide text-ink-secondary">{session.email}</p>
+              <p className="mt-1 font-mono text-[11px] font-medium tracking-wide text-ink-tertiary">
                 API {health}
               </p>
 
@@ -319,26 +321,26 @@ function ShellHeader({
                     setMenuOpen(false)
                   }}
                 >
-                  <p className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.08em] text-ink-tertiary">
+                  <p className="flex items-center gap-1.5 font-sans text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-tertiary">
                     <Plus size={12} strokeWidth={1.5} />
                     Nova raiz
                   </p>
                   <input
-                    className="w-full border border-hairline bg-transparent px-2 py-1.5 text-[13px] text-ink-primary outline-none placeholder:text-ink-tertiary focus:border-copper"
+                    className="w-full border border-hairline bg-void px-2 py-1.5 text-[13px] font-medium text-ink-primary outline-none placeholder:text-ink-tertiary"
                     placeholder="id"
                     value={rootId}
                     onChange={(event) => setRootId(event.target.value)}
                     required
                   />
                   <input
-                    className="w-full border border-hairline bg-transparent px-2 py-1.5 text-[13px] text-ink-primary outline-none placeholder:text-ink-tertiary focus:border-copper"
+                    className="w-full border border-hairline bg-void px-2 py-1.5 text-[13px] font-medium text-ink-primary outline-none placeholder:text-ink-tertiary"
                     placeholder="título"
                     value={rootTitle}
                     onChange={(event) => setRootTitle(event.target.value)}
                     required
                   />
                   <button
-                    className="text-[13px] text-copper underline-offset-4 hover:underline"
+                    className="text-[13px] font-semibold text-ink-secondary underline-offset-4 hover:text-accent hover:underline"
                     type="submit"
                   >
                     Criar
@@ -349,7 +351,7 @@ function ShellHeader({
               <div className="mt-3 space-y-1 border-t border-hairline pt-3">
                 {page === 'roadmap' && (
                   <button
-                    className="flex w-full items-center gap-2 py-1 text-left text-[13px] text-ink-secondary transition-colors duration-150 hover:text-ink-primary"
+                    className="flex w-full items-center gap-2 py-1 text-left text-[13px] font-medium text-ink-secondary hover:text-ink-primary"
                     type="button"
                     onClick={() => {
                       onImport()
@@ -361,7 +363,7 @@ function ShellHeader({
                   </button>
                 )}
                 <button
-                  className="flex w-full items-center gap-2 py-1 text-left text-[13px] text-ink-secondary transition-colors duration-150 hover:text-ink-primary"
+                  className="flex w-full items-center gap-2 py-1 text-left text-[13px] font-medium text-ink-secondary hover:text-ink-primary"
                   type="button"
                   onClick={onLogout}
                 >

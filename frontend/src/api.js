@@ -56,6 +56,7 @@ async function parse(response) {
 function fallbackError(status) {
   if (status === 404) return 'O backend ainda não tem essa rota. Reinicie o Spring Boot na pasta backend.'
   if (status === 429) return 'Cota do Gemini esgotada. Tente novamente em alguns minutos.'
+  if (status === 500) return 'O backend não está no ar. Na pasta backend, rode .\\mvnw.cmd spring-boot:run'
   if (status === 502) return 'A IA não devolveu um JSON válido.'
   if (status === 503) return 'GEMINI_API_KEY ausente ou inválida.'
   if (status === 401) return 'Faça login para continuar.'

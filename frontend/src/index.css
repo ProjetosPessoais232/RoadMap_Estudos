@@ -2,28 +2,28 @@
 @import "@xyflow/react/dist/style.css";
 
 @theme {
-  --color-void: #08090b;
-  --color-surface: #0f1114;
-  --color-surface-raised: #16191d;
-  --color-ink-primary: #e8e9ea;
-  --color-ink-secondary: #8a8f96;
-  --color-ink-tertiary: #4e5257;
-  --color-hairline: rgb(255 255 255 / 0.08);
-  --color-hairline-strong: rgb(255 255 255 / 0.16);
-  --color-copper: #c57a4a;
-  --color-copper-dim: rgb(197 122 74 / 0.2);
-  --color-status-idle: #4e5257;
-  --color-status-now: #c57a4a;
-  --color-status-done: #5c6470;
-  --color-danger: #b4483c;
-  --color-glow-ai: rgb(197 122 74 / 0.35);
+  --color-void: #f7f6f3;
+  --color-surface: #ffffff;
+  --color-surface-raised: #efede8;
+  --color-ink-primary: #1a1a18;
+  --color-ink-secondary: #5c5b56;
+  --color-ink-tertiary: #9a9890;
+  --color-hairline: rgb(0 0 0 / 0.08);
+  --color-hairline-strong: rgb(0 0 0 / 0.16);
+  --color-accent: #2b4c8c;
+  --color-accent-dim: rgb(43 76 140 / 0.1);
+  --color-status-idle: #9a9890;
+  --color-status-now: #2b4c8c;
+  --color-status-done: #3d6b4f;
+  --color-danger: #a13e2f;
+  --color-glow-ai: rgb(43 76 140 / 0.15);
 
-  --font-display: "IBM Plex Serif", "Iowan Old Style", "Palatino Linotype", Palatino, serif;
-  --font-sans: "Google Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --font-display: "Archivo", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
-  --shadow-glow-ai: 0 0 12px rgb(197 122 74 / 0.35);
-  --ease-observatory: cubic-bezier(0.22, 1, 0.36, 1);
+  --shadow-glow-ai: 0 0 24px rgb(43 76 140 / 0.15);
+  --ease-paper: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 :root {
@@ -35,13 +35,14 @@
   --ink-tertiary: var(--color-ink-tertiary);
   --border-hairline: var(--color-hairline);
   --border-hairline-strong: var(--color-hairline-strong);
-  --accent-copper: var(--color-copper);
-  --accent-copper-dim: var(--color-copper-dim);
+  --accent: var(--color-accent);
+  --accent-dim: var(--color-accent-dim);
   --status-idle: var(--color-status-idle);
   --status-now: var(--color-status-now);
   --status-done: var(--color-status-done);
   --danger: var(--color-danger);
   --glow-ai: var(--color-glow-ai);
+  --ease-paper: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 html,
@@ -52,12 +53,14 @@ body,
   background-color: var(--color-void);
   color: var(--color-ink-primary);
   font-family: var(--font-sans);
-  font-weight: 600;
-  color-scheme: dark;
+  font-weight: 500;
+  line-height: 1.65;
+  color-scheme: light;
 }
 
 .font-display {
-  font-weight: 400;
+  font-family: var(--font-display);
+  font-weight: 600;
 }
 
 body {
@@ -70,7 +73,7 @@ body::before {
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  opacity: 0.03;
+  opacity: 0.02;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-repeat: repeat;
   background-size: 256px 256px;
@@ -83,9 +86,9 @@ body::before {
 
 a,
 button {
-  transition-property: color, opacity, border-color, background-color, text-decoration-color;
-  transition-duration: 150ms;
-  transition-timing-function: ease-out;
+  transition-property: color, opacity, border-color, background-color, text-decoration-color, box-shadow;
+  transition-duration: 240ms;
+  transition-timing-function: var(--ease-paper);
 }
 
 :focus {
@@ -93,42 +96,46 @@ button {
 }
 
 :focus-visible {
-  outline: 1px solid var(--color-copper);
+  outline: 1px solid var(--color-accent);
   outline-offset: 3px;
 }
 
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  outline: 1px solid var(--color-copper);
+  outline: 1px solid var(--color-accent);
   outline-offset: 2px;
-  border-color: var(--color-copper);
+  border-color: var(--color-accent);
 }
 
 .page-view {
-  animation: page-enter 240ms var(--ease-observatory) both;
+  animation: page-enter 320ms var(--ease-paper) both;
 }
 
 .empty-fade {
-  animation: empty-enter 240ms var(--ease-observatory) both;
+  animation: empty-enter 280ms var(--ease-paper) both;
 }
 
 .empty-fade-2 {
-  animation-delay: 60ms;
+  animation-delay: 80ms;
 }
 
 .empty-fade-3 {
-  animation-delay: 120ms;
+  animation-delay: 160ms;
 }
 
 .empty-fade-4 {
-  animation-delay: 180ms;
+  animation-delay: 240ms;
+}
+
+.chat-enter {
+  animation: page-enter 220ms var(--ease-paper) both;
 }
 
 @keyframes page-enter {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
@@ -139,7 +146,7 @@ select:focus-visible {
 @keyframes empty-enter {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(4px);
   }
   to {
     opacity: 1;
@@ -160,8 +167,12 @@ select:focus-visible {
   background: var(--color-void);
 }
 
-.observatory-vignette {
-  box-shadow: inset 0 0 120px 48px rgb(8 9 11 / 0.28);
+.paper-vignette-overlay {
+  background: radial-gradient(ellipse at center, transparent 38%, rgb(255 255 255 / 0.42) 100%);
+}
+
+.shadow-soft {
+  box-shadow: 0 10px 40px rgb(0 0 0 / 0.05);
 }
 
 .react-flow__controls-button {
@@ -175,17 +186,34 @@ select:focus-visible {
   background: var(--color-surface) !important;
 }
 
-.tech-node-ai {
-  box-shadow: 0 0 12px var(--color-glow-ai);
-  animation: observatory-ignite 400ms cubic-bezier(0.22, 1, 0.36, 1);
+.tech-node {
+  transition:
+    transform 200ms var(--ease-paper),
+    border-color 200ms var(--ease-paper),
+    background-color 200ms var(--ease-paper),
+    box-shadow 200ms var(--ease-paper);
 }
 
-@keyframes observatory-ignite {
+.tech-node:hover {
+  transform: scale(1.008);
+  box-shadow: 0 10px 40px rgb(0 0 0 / 0.05);
+}
+
+.tech-node-ai {
+  box-shadow: 0 0 24px var(--color-glow-ai);
+  animation: ai-ignite 500ms var(--ease-paper);
+}
+
+.tech-node-ai:hover {
+  box-shadow: 0 0 24px var(--color-glow-ai), 0 10px 40px rgb(0 0 0 / 0.05);
+}
+
+@keyframes ai-ignite {
   from {
-    box-shadow: 0 0 0 0 rgb(197 122 74 / 0);
+    box-shadow: 0 0 0 0 rgb(43 76 140 / 0);
   }
   to {
-    box-shadow: 0 0 12px var(--color-glow-ai);
+    box-shadow: 0 0 24px var(--color-glow-ai);
   }
 }
 
@@ -194,8 +222,9 @@ select:focus-visible {
     animation: none;
   }
 
-  .tech-node {
-    transition: none !important;
+  .tech-node,
+  .tech-node:hover {
+    transition: opacity 100ms linear, border-color 100ms linear, background-color 100ms linear !important;
     transform: none !important;
   }
 
@@ -203,7 +232,8 @@ select:focus-visible {
   .empty-fade,
   .empty-fade-2,
   .empty-fade-3,
-  .empty-fade-4 {
+  .empty-fade-4,
+  .chat-enter {
     animation: fade-only 100ms linear both;
     transform: none;
   }
@@ -211,5 +241,6 @@ select:focus-visible {
   a,
   button {
     transition-duration: 100ms;
+    transition-property: opacity, color, border-color, background-color;
   }
 }
