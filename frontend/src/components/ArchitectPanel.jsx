@@ -1,8 +1,21 @@
 import { useEffect, useState } from 'react'
+import { PanelLeft, Sparkles } from 'lucide-react'
 import { listHistory } from '../api'
 import StatusDot, { STATUS_LEGEND } from './StatusDot.jsx'
 
-const labelClass = 'font-sans text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-tertiary'
+export function SidebarToggle({ open, onToggle }) {
+  return (
+    <button
+      aria-label={open ? 'Ocultar menu esquerdo' : 'Mostrar menu esquerdo'}
+      aria-pressed={open}
+      className={`sidebar-toggle ${open ? 'is-open' : ''}`}
+      type="button"
+      onClick={onToggle}
+    >
+      <PanelLeft size={18} strokeWidth={1.75} />
+    </button>
+  )
+}
 
 export default function ArchitectPanel({
   loading,
@@ -22,123 +35,106 @@ export default function ArchitectPanel({
   }, [result])
 
   return (
-    <aside className="flex h-full w-[340px] shrink-0 flex-col border-r border-hairline bg-surface px-5 py-6">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+    <aside className="architect-panel flex h-full w-[360px] flex-col">
+      <header className="architect-panel-head">
+        <div className="h-9 w-9 shrink-0" aria-hidden="true" />
+        <div>
+          <p className="architect-kicker">Studio</p>
+          <h2 className="architect-title">Arquiteto</h2>
+        </div>
+      </header>
+
+      <div className="architect-legend" role="list">
         {STATUS_LEGEND.map((item) => (
-          <p key={item.status} className="flex items-center gap-1.5 font-mono text-[11px] font-medium text-ink-tertiary">
+          <p key={item.status} className="architect-legend-item" role="listitem">
             <StatusDot status={item.status} />
-            {item.label}
+            <span>{item.label}</span>
           </p>
         ))}
       </div>
 
-      <p className={`${labelClass} mt-6`}>Arquiteto</p>
-      <p className="mt-2 text-[13px] leading-[1.65] text-ink-secondary">
-        Descreva a ideia. A IA recomenda a stack e destaca nós do seu roadmap.
-      </p>
-
       <form
-        className="mt-6 flex flex-col"
+        className="architect-composer"
         onSubmit={(event) => {
           event.preventDefault()
           const idea = new FormData(event.currentTarget).get('idea')
           onSubmit(String(idea || ''))
         }}
       >
+        <label className="architect-kicker" htmlFor="architect-idea">
+          Nova ideia
+        </label>
+        <p className="architect-lede">A IA recomenda a stack e destaca os nós do seu mapa.</p>
         <textarea
+          id="architect-idea"
           name="idea"
           required
           minLength={20}
           rows={5}
-          className="w-full resize-none border border-hairline bg-void px-3 py-2 text-[14px] font-medium leading-[1.65] text-ink-primary outline-none placeholder:text-ink-tertiary"
-          placeholder="Quero criar um app de entrega de comida com rastreamento em tempo real..."
+          className="architect-input"
+          placeholder="Quero criar um app de entrega de comida com rastreamento em tempo real…"
         />
-        <div className="mt-4 flex items-baseline gap-4">
-          <button
-            className="bg-ink-primary px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90 disabled:opacity-50"
-            disabled={loading}
-            type="submit"
-          >
+        <div className="architect-actions">
+          <button className="architect-submit" disabled={loading} type="submit">
+            <Sparkles size={14} strokeWidth={2} />
             {loading ? 'Arquitetando…' : 'Arquitetar'}
           </button>
-          <button
-            className="text-[13px] font-medium text-ink-secondary hover:text-ink-primary"
-            type="button"
-            onClick={onClear}
-          >
+          <button className="architect-ghost" type="button" onClick={onClear}>
             Limpar
           </button>
         </div>
-        {loading && (
-          <p className="mt-3 font-mono text-[11px] font-medium tracking-wide text-ink-tertiary">
-            {status || 'Processando…'}
-          </p>
-        )}
+        {loading ? <p className="architect-status">{status || 'Processando…'}</p> : null}
       </form>
 
-      <div className="mt-6 min-h-0 flex-1 space-y-8 overflow-y-auto">
+      <div className="architect-scroll">
         {result ? (
-          <div className="space-y-5 border-t border-hairline pt-5">
-            <blockquote className="border-l border-hairline pl-3 text-[14px] leading-[1.65] text-ink-secondary">
-              {result.arquitetura_resumo}
-            </blockquote>
-            <div className="space-y-3">
+          <section className="architect-result">
+            <p className="architect-kicker">Recomendação</p>
+            <blockquote className="architect-quote">{result.arquitetura_resumo}</blockquote>
+            <div className="architect-stack">
               <QuoteField label="Frontend" value={result.stack_recomendada?.frontend} />
               <QuoteField label="Backend" value={result.stack_recomendada?.backend} />
               <QuoteField label="Database" value={result.stack_recomendada?.database} />
-              <QuoteField
-                label="Outros"
-                value={(result.stack_recomendada?.outros || []).join(', ') || '—'}
-              />
+              <QuoteField label="Outros" value={(result.stack_recomendada?.outros || []).join(', ') || '—'} />
             </div>
-            {result.nodes_para_ativar?.length > 0 && (
-              <ul className="space-y-1">
+            {result.nodes_para_ativar?.length > 0 ? (
+              <div className="architect-nodes">
                 {result.nodes_para_ativar.map((id) => (
-                  <li key={id}>
-                    <button
-                      type="button"
-                      className="font-mono text-[12px] font-medium text-ink-secondary underline-offset-4 hover:text-accent hover:underline"
-                      onClick={() => onHighlightNode(id)}
-                    >
-                      {id}
-                    </button>
-                  </li>
+                  <button key={id} type="button" className="architect-chip" onClick={() => onHighlightNode(id)}>
+                    {id}
+                  </button>
                 ))}
-              </ul>
-            )}
-            {result.nodes_para_ativar?.length === 0 && (
-              <p className="empty-fade text-[12px] leading-[1.65] text-ink-secondary">
-                Nenhum nó do seu roadmap correspondeu. Considere cadastrar as tecnologias da stack.
+              </div>
+            ) : (
+              <p className="architect-empty">
+                Nenhum nó do roadmap correspondeu. Cadastre as tecnologias da stack.
               </p>
             )}
-          </div>
+          </section>
         ) : (
           !loading && (
-            <p className="empty-fade border-t border-hairline pt-5 text-[13px] leading-[1.65] text-ink-secondary">
+            <p className="architect-empty architect-empty-block">
               Ainda não há uma arquitetura nesta sessão. Envie uma ideia com pelo menos 20 caracteres.
             </p>
           )
         )}
 
-        <section className="border-t border-hairline pt-5">
-          <h3 className={labelClass}>Histórico</h3>
+        <section className="architect-history">
+          <div className="architect-history-head">
+            <h3 className="architect-kicker">Histórico</h3>
+            <span className="architect-count">{history.length}</span>
+          </div>
           {history.length === 0 ? (
-            <p className="empty-fade mt-2 text-[13px] leading-[1.65] text-ink-secondary">
-              Nenhuma recomendação salva ainda.
-            </p>
+            <p className="architect-empty">Nenhuma recomendação salva ainda.</p>
           ) : (
-            <ul className="mt-3 space-y-3">
+            <ul className="architect-history-list">
               {history.map((item) => (
                 <li key={item.id}>
-                  <button
-                    type="button"
-                    className="w-full text-left text-[13px] font-medium leading-[1.65] text-ink-secondary underline-offset-4 hover:text-accent hover:underline"
-                    onClick={() => onPickHistory(item)}
-                  >
+                  <button type="button" className="architect-history-item" onClick={() => onPickHistory(item)}>
                     <span className="line-clamp-2">{item.idea}</span>
-                    <span className="mt-1 block font-mono text-[11px] font-medium text-ink-tertiary no-underline hover:no-underline">
+                    <time>
                       {item.createdAt ? new Date(item.createdAt).toLocaleString('pt-BR') : ''}
-                    </span>
+                    </time>
                   </button>
                 </li>
               ))}
@@ -152,9 +148,9 @@ export default function ArchitectPanel({
 
 function QuoteField({ label, value }) {
   return (
-    <div className="border-l border-hairline pl-3">
-      <p className={labelClass}>{label}</p>
-      <p className="mt-0.5 text-[14px] font-medium text-ink-primary">{value || '—'}</p>
+    <div className="architect-field">
+      <p className="architect-kicker">{label}</p>
+      <p>{value || '—'}</p>
     </div>
   )
 }

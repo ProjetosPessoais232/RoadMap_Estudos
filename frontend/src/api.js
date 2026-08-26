@@ -60,19 +60,34 @@ function fallbackError(status) {
   if (status === 502) return 'A IA não devolveu um JSON válido.'
   if (status === 503) return 'GEMINI_API_KEY ausente ou inválida.'
   if (status === 401) return 'Faça login para continuar.'
+  if (status === 403) {
+    return 'Acesso recusado. Confira se o backend do Paperless está na porta 8080 — outro Spring Boot nessa porta (ex.: SelfEvolution) causa este erro.'
+  }
   return `Erro ${status}`
 }
 
+async function request(method, path, body) {
+  let response
+  try {
+    response = await fetch(`${API}${path}`, {
+      method,
+      headers: headers(body != null),
+      body: body == null ? undefined : JSON.stringify(body),
+    })
+  } catch {
+    throw new Error(
+      'Não foi possível conectar ao backend. Confira se ele está rodando (porta 8080) e acesse o app em http://localhost:5173',
+    )
+  }
+  return parse(response)
+}
+
 function json(method, path, body) {
-  return fetch(`${API}${path}`, {
-    method,
-    headers: headers(true),
-    body: JSON.stringify(body),
-  }).then(parse)
+  return request(method, path, body)
 }
 
 export function getHealth() {
-  return fetch(`${API}/health`).then(parse)
+  return request('GET', '/health')
 }
 
 export function register(email, password) {
@@ -84,7 +99,7 @@ export function login(email, password) {
 }
 
 export function listNodes() {
-  return fetch(`${API}/nodes`, { headers: headers() }).then(parse)
+  return request('GET', '/nodes')
 }
 
 export function createNode(payload) {
@@ -99,16 +114,20 @@ export function updateNode(id, payload) {
   return json('PUT', `/nodes/${id}`, payload)
 }
 
+export function patchNodeStyle(id, style) {
+  return json('PATCH', `/nodes/${id}/style`, style)
+}
+
 export function updateNodeStatus(id, status) {
   return json('PATCH', `/nodes/${id}/status`, { status })
 }
 
 export function deleteNode(id) {
-  return fetch(`${API}/nodes/${id}`, { method: 'DELETE', headers: headers() }).then(parse)
+  return request('DELETE', `/nodes/${id}`)
 }
 
 export function listCourses(nodeId) {
-  return fetch(`${API}/nodes/${nodeId}/courses`, { headers: headers() }).then(parse)
+  return request('GET', `/nodes/${nodeId}/courses`)
 }
 
 export function createCourse(payload) {
@@ -116,17 +135,61 @@ export function createCourse(payload) {
 }
 
 export function deleteCourse(id) {
-  return fetch(`${API}/courses/${id}`, { method: 'DELETE', headers: headers() }).then(parse)
+  return request('DELETE', `/courses/${id}`)
 }
 
 export function listHistory() {
-  return fetch(`${API}/ai/history`, { headers: headers() }).then(parse)
+  return request('GET', '/ai/history')
 }
 
 export function recommendArchitecture(idea) {
   return json('POST', '/ai/recommend', { idea })
 }
 
-export function chatCourses(message, history = []) {
-  return json('POST', '/ai/chat', { message, history })
+export function chatCourses(message, history = [], conversationId) {
+  return json('POST', '/ai/chat', { message, history, conversationId: conversationId || null })
+}
+export function listConversations() {
+  return request('GET', '/chat/conversations')
+}
+
+export function createConversation(title) {
+  return json('POST', '/chat/conversations', title ? { title } : {})
+}
+
+export function getConversation(id) {
+  return request('GET', `/chat/conversations/${id}`)
+}
+
+export function renameConversation(id, title) {
+  return json('PATCH', `/chat/conversations/${id}`, { title })
+}
+
+export function deleteConversation(id) {
+  return request('DELETE', `/chat/conversations/${id}`)
+}
+
+export function searchConversations(q) {
+  return request('GET', `/chat/conversations/search?q=${encodeURIComponent(q)}`)
+}
+
+export function listNotes(nodeId) {
+  const query = nodeId ? `?nodeId=${encodeURIComponent(nodeId)}` : ''
+  return request('GET', `/notes${query}`)
+}
+
+export function createNote(payload) {
+  return json('POST', '/notes', payload)
+}
+
+export function updateNote(id, payload) {
+  return json('PUT', `/notes/${id}`, payload)
+}
+
+export function deleteNote(id) {
+  return request('DELETE', `/notes/${id}`)
+}
+
+export function rewriteNote(payload) {
+  return json('POST', '/ai/notes/rewrite', payload)
 }

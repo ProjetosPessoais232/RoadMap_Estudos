@@ -1,20 +1,18 @@
 import { useEffect, useState } from 'react'
 import {
   createCourse,
-  createNode,
   deleteCourse,
   deleteNode,
   listCourses,
   updateNode,
   updateNodeStatus,
 } from '../api'
-import { nextOptionPosition } from '../layout'
 import StatusDot, { STATUS_LEGEND } from './StatusDot.jsx'
 
 const emptyCourse = { name: '', platform: '', url: '' }
 
 const inputClass =
-  'w-full border-0 border-b border-hairline bg-transparent px-0 py-2 text-[14px] font-medium text-ink-primary outline-none placeholder:text-ink-tertiary'
+  'w-full rounded-lg border-2 border-node-border bg-white px-3 py-2 text-[14px] font-medium text-ink-primary outline-none placeholder:text-ink-tertiary'
 const labelClass = 'font-sans text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-tertiary'
 const textAction =
   'text-[13px] font-semibold text-ink-secondary underline-offset-4 hover:text-accent hover:underline'
@@ -24,13 +22,9 @@ export default function NodePanel({ node, childrenNodes = [], onChanged, onDelet
   const [courses, setCourses] = useState([])
   const [loadingCourses, setLoadingCourses] = useState(true)
   const [courseForm, setCourseForm] = useState(emptyCourse)
-  const [childId, setChildId] = useState('')
-  const [childTitle, setChildTitle] = useState('')
 
   useEffect(() => {
     setTitle(node.title)
-    setChildId('')
-    setChildTitle('')
     setLoadingCourses(true)
     listCourses(node.id)
       .then(setCourses)
@@ -71,25 +65,6 @@ export default function NodePanel({ node, childrenNodes = [], onChanged, onDelet
     }
   }
 
-  async function addChild(event) {
-    event.preventDefault()
-    const slot = nextOptionPosition(node, childrenNodes.length)
-    try {
-      const created = await createNode({
-        id: childId.trim().toLowerCase(),
-        title: childTitle.trim(),
-        parentId: node.id,
-        posX: slot.posX,
-        posY: slot.posY,
-      })
-      setChildId('')
-      setChildTitle('')
-      onChanged(created, true)
-    } catch (err) {
-      onError(err.message)
-    }
-  }
-
   async function addCourse(event) {
     event.preventDefault()
     try {
@@ -111,7 +86,7 @@ export default function NodePanel({ node, childrenNodes = [], onChanged, onDelet
   }
 
   return (
-    <aside className="flex h-full w-[360px] shrink-0 flex-col overflow-y-auto border-l border-hairline bg-surface px-5 py-6">
+    <aside className="node-panel flex h-full w-[360px] flex-col overflow-y-auto bg-surface px-5 py-6">
       <p className={labelClass}>Nó</p>
       <h2 className="mt-2 font-display text-[22px] font-semibold leading-tight text-ink-primary">{node.title}</h2>
       <p className="mt-1 font-mono text-[11px] font-medium tracking-wide text-ink-tertiary">{node.id}</p>
@@ -133,7 +108,7 @@ export default function NodePanel({ node, childrenNodes = [], onChanged, onDelet
               key={item.status}
               type="button"
               className={`flex w-full items-center gap-2.5 text-left text-[14px] font-medium ${
-                active ? 'text-ink-primary' : 'text-ink-tertiary hover:text-ink-secondary'
+                active ? 'rounded-lg border-2 border-node-border bg-node-main px-3 py-2 text-ink-primary' : 'rounded-lg border-2 border-transparent px-3 py-2 text-ink-tertiary hover:border-node-border hover:text-ink-secondary'
               }`}
               onClick={() => changeStatus(item.status)}
             >
@@ -204,7 +179,9 @@ export default function NodePanel({ node, childrenNodes = [], onChanged, onDelet
       <section className="mt-8">
         <h3 className={labelClass}>Filhos</h3>
         {childrenNodes.length === 0 ? (
-          <p className="empty-fade mt-3 text-[13px] leading-[1.65] text-ink-secondary">Nenhum filho neste nó.</p>
+          <p className="empty-fade mt-3 text-[13px] leading-[1.65] text-ink-secondary">
+            Arraste o pontinho da direita até o mapa vazio para criar um filho.
+          </p>
         ) : (
           <ul className="mt-3 ml-3 space-y-1.5 border-l border-hairline pl-3">
             {childrenNodes.map((child) => (
@@ -215,23 +192,6 @@ export default function NodePanel({ node, childrenNodes = [], onChanged, onDelet
             ))}
           </ul>
         )}
-        <form className="mt-4 ml-3 space-y-3 border-l border-hairline pl-3" onSubmit={addChild}>
-          <input
-            className={`${inputClass} font-mono text-[13px]`}
-            placeholder="id slug (ex: redis)"
-            value={childId}
-            onChange={(event) => setChildId(event.target.value)}
-          />
-          <input
-            className={`${inputClass} font-mono text-[13px]`}
-            placeholder="Título"
-            value={childTitle}
-            onChange={(event) => setChildTitle(event.target.value)}
-          />
-          <button className={`font-mono text-[12px] ${textAction}`} type="submit">
-            Criar filho
-          </button>
-        </form>
       </section>
 
       <button

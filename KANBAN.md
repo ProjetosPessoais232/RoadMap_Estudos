@@ -1,4 +1,4 @@
-# Kanban — LMS Roadmap de Estudos
+# Kanban — Paperless
 
 Quadro de tarefas do MVP. **Login JWT; progresso e cursos por usuário.** IA: **Gemini Flash** (`gemini-2.5-flash`).
 

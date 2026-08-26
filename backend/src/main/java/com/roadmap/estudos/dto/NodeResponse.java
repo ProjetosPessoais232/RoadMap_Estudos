@@ -1,5 +1,6 @@
 package com.roadmap.estudos.dto;
 
+import com.roadmap.estudos.domain.NodeStyle;
 import com.roadmap.estudos.domain.ProgressStatus;
 import com.roadmap.estudos.domain.RoadmapNode;
 
@@ -10,7 +11,8 @@ public record NodeResponse(
         String parentId,
         ProgressStatus status,
         Double posX,
-        Double posY
+        Double posY,
+        NodeStyle style
 ) {
     public static NodeResponse from(RoadmapNode node) {
         return from(node, node.getStatus() != null ? node.getStatus() : ProgressStatus.NOT_STARTED);
@@ -25,7 +27,8 @@ public record NodeResponse(
                 parentId,
                 status != null ? status : ProgressStatus.NOT_STARTED,
                 node.getPosX(),
-                node.getPosY()
+                node.getPosY(),
+                node.getStyle()
         );
     }
 }

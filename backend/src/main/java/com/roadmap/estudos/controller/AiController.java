@@ -5,8 +5,11 @@ import com.roadmap.estudos.dto.ArchitectResponse;
 import com.roadmap.estudos.dto.CourseChatRequest;
 import com.roadmap.estudos.dto.CourseChatResponse;
 import com.roadmap.estudos.dto.HistoryResponse;
+import com.roadmap.estudos.dto.NoteRewriteRequest;
+import com.roadmap.estudos.dto.NoteRewriteResponse;
 import com.roadmap.estudos.exception.ApiException;
 import com.roadmap.estudos.service.GeminiArchitectService;
+import com.roadmap.estudos.service.NoteAssistantService;
 import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
@@ -28,9 +31,11 @@ import java.util.concurrent.CompletableFuture;
 public class AiController {
 
     private final GeminiArchitectService geminiArchitectService;
+    private final NoteAssistantService noteAssistantService;
 
-    public AiController(GeminiArchitectService geminiArchitectService) {
+    public AiController(GeminiArchitectService geminiArchitectService, NoteAssistantService noteAssistantService) {
         this.geminiArchitectService = geminiArchitectService;
+        this.noteAssistantService = noteAssistantService;
     }
 
     @PostMapping("/recommend")
@@ -41,6 +46,11 @@ public class AiController {
     @PostMapping("/chat")
     public CourseChatResponse chat(@Valid @RequestBody CourseChatRequest request) {
         return geminiArchitectService.chatCourses(request);
+    }
+
+    @PostMapping("/notes/rewrite")
+    public NoteRewriteResponse rewriteNote(@Valid @RequestBody NoteRewriteRequest request) {
+        return noteAssistantService.rewrite(request);
     }
 
     @PostMapping(value = "/recommend/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)

@@ -1,239 +1,214 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowUp } from 'lucide-react'
-import { chatCourses, createCourse, listNodes } from '../api'
+import {
+  chatCourses,
+  createCourse,
+  deleteConversation,
+  getConversation,
+  listConversations,
+  listNodes,
+  renameConversation,
+  searchConversations,
+} from '../api'
+import ChatSidebar from './ChatSidebar.jsx'
+import ChatMessage, { TypingMessage } from './chat/ChatMessage.jsx'
+import CourseCard from './chat/CourseCard.jsx'
+import Toast from './chat/Toast.jsx'
 
-const SUGGESTIONS = [
-  'Quero um curso de Java na Udemy para começar do zero.',
-  'Me indique um curso grátis de React no YouTube.',
-  'Quais cursos de PostgreSQL combinam com o meu roadmap?',
-  'Estou em dúvida entre Alura e Coursera para Spring Boot.',
+const WELCOME = 'Me conte o que você quer estudar: nome do curso, plataforma ou um link. Eu discuto as opções e, quando fizer sentido, relaciono com um nó do seu roadmap para você salvar.'
+const PLACEHOLDERS = [
+  'Ex.: curso de Java na Udemy do zero...',
+  'Ex.: React grátis no YouTube...',
+  'Ex.: PostgreSQL para o meu roadmap...',
 ]
-
-const WELCOME =
-  'Me conte o que você quer estudar: nome do curso, plataforma ou um link. Eu discuto as opções e, quando fizer sentido, relaciono com um nó do seu roadmap para você salvar.'
 
 export default function ChatPage() {
   const [nodes, setNodes] = useState([])
-  const [messages, setMessages] = useState([{ role: 'assistant', content: WELCOME, courses: [] }])
+  const [conversations, setConversations] = useState([])
+  const [activeId, setActiveId] = useState(null)
+  const [messages, setMessages] = useState([])
+  const [loadingConversations, setLoadingConversations] = useState(true)
+  const [loadingConversation, setLoadingConversation] = useState(false)
+  const [query, setQuery] = useState('')
   const [draft, setDraft] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [picks, setPicks] = useState({})
   const [saved, setSaved] = useState({})
+  const [toast, setToast] = useState('')
+  const [placeholderIndex, setPlaceholderIndex] = useState(0)
   const bottomRef = useRef(null)
+  const toastTimer = useRef(null)
 
   useEffect(() => {
-    listNodes()
-      .then(setNodes)
+    listNodes().then(setNodes).catch((err) => setError(err.message))
+    listConversations()
+      .then(async (items) => {
+        setConversations(items)
+        if (items[0]) await selectConversation(items[0].id)
+      })
       .catch((err) => setError(err.message))
+      .finally(() => setLoadingConversations(false))
+    return () => window.clearTimeout(toastTimer.current)
+  }, [])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setPlaceholderIndex((index) => (index + 1) % PLACEHOLDERS.length), 5000)
+    return () => window.clearInterval(timer)
   }, [])
 
   useEffect(() => {
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     bottomRef.current?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth' })
-  }, [messages, loading])
+  }, [messages, loading, activeId])
 
-  const nodeLabel = useMemo(() => {
-    const map = {}
-    for (const node of nodes) {
-      map[node.id] = node.title
+  const nodeLabel = useMemo(() => Object.fromEntries(nodes.map((node) => [node.id, node.title])), [nodes])
+  const activeConversation = conversations.find((conversation) => conversation.id === activeId)
+  const title = activeConversation?.title || 'Nova conversa'
+
+  async function refreshConversations(selectId) {
+    const items = await listConversations()
+    setConversations(items)
+    if (selectId) setActiveId(selectId)
+    return items
+  }
+
+  async function selectConversation(id) {
+    setLoadingConversation(true)
+    setError('')
+    try {
+      const conversation = await getConversation(id)
+      setActiveId(conversation.id)
+      setMessages((conversation.messages || []).map((message) => ({
+        role: message.role,
+        content: message.content,
+        courses: message.cursosSugeridos || [],
+      })))
+      setPicks({})
+      setSaved({})
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoadingConversation(false)
     }
-    return map
-  }, [nodes])
+  }
+
+  function newConversation() {
+    setActiveId(null)
+    setMessages([])
+    setDraft('')
+    setPicks({})
+    setSaved({})
+    setError('')
+  }
+
+  async function handleSearch(value) {
+    setQuery(value)
+    try {
+      setLoadingConversations(true)
+      setConversations(value.trim() ? await searchConversations(value.trim()) : await listConversations())
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoadingConversations(false)
+    }
+  }
+
+  async function handleRename(id, nextTitle) {
+    try {
+      const updated = await renameConversation(id, nextTitle)
+      setConversations((current) => current.map((item) => (item.id === id ? updated : item)))
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  async function handleDelete(id) {
+    try {
+      await deleteConversation(id)
+      const wasActive = id === activeId
+      const items = await refreshConversations(wasActive ? null : activeId)
+      if (wasActive) {
+        if (items[0]) await selectConversation(items[0].id)
+        else newConversation()
+      }
+    } catch (err) {
+      setError(err.message)
+    }
+  }
 
   async function send(text) {
     const message = text.trim()
     if (message.length < 2 || loading) return
-
-    const history = messages
-      .filter((item) => item.content !== WELCOME)
-      .filter((item) => item.role === 'user' || item.role === 'assistant')
-      .map((item) => ({ role: item.role, content: item.content }))
-
+    const history = messages.map((item) => ({ role: item.role, content: item.content }))
     setDraft('')
     setError('')
     setMessages((current) => [...current, { role: 'user', content: message, courses: [] }])
     setLoading(true)
     try {
-      const result = await chatCourses(message, history)
-      setMessages((current) => [
-        ...current,
-        {
-          role: 'assistant',
-          content: result.resposta,
-          courses: result.cursos_sugeridos || [],
-        },
-      ])
+      const result = await chatCourses(message, history, activeId)
+      setMessages((current) => [...current, { role: 'assistant', content: result.resposta, courses: result.cursos_sugeridos || [] }])
+      if (result.conversationId) {
+        setActiveId(result.conversationId)
+        await refreshConversations(result.conversationId)
+      }
     } catch (err) {
       setError(err.message)
-      setMessages((current) => [
-        ...current,
-        {
-          role: 'assistant',
-          content: err.message || 'Não consegui responder agora. Tente de novo em instantes.',
-          courses: [],
-        },
-      ])
+      setMessages((current) => [...current, { role: 'assistant', content: err.message || 'Não consegui responder agora. Tente de novo em instantes.', courses: [] }])
     } finally {
       setLoading(false)
     }
   }
 
-  async function saveCourse(course, key) {
-    const nodeId = course.node_id || picks[key]
-    if (!nodeId) {
-      setError('Escolha um nó do roadmap antes de salvar este curso.')
-      return
-    }
+  function showToast(message) {
+    setToast(message)
+    window.clearTimeout(toastTimer.current)
+    toastTimer.current = window.setTimeout(() => setToast(''), 3000)
+  }
+
+  async function saveCourse(course, key, nodeId) {
+    if (!nodeId) return
     try {
-      await createCourse({
-        name: course.nome,
-        platform: course.plataforma,
-        url: course.url,
-        nodeId,
-      })
-      setSaved((current) => ({ ...current, [key]: nodeId }))
+      await createCourse({ name: course.nome, platform: course.plataforma, url: course.url, nodeId })
+      setSaved((current) => ({ ...current, [key]: true }))
       setError('')
+      showToast('Adicionado ao roadmap ✓')
     } catch (err) {
       setError(err.message)
     }
   }
 
+  const renderedMessages = messages.length ? messages : [{ role: 'assistant', content: WELCOME, courses: [] }]
+
   return (
-    <div className="mx-auto flex h-full min-h-0 w-full max-w-2xl flex-col bg-void px-5">
-      <header className="shrink-0 py-8">
-        <p className="font-sans text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-tertiary">
-          Mentor de cursos
-        </p>
-        <h2 className="mt-2 font-display text-[28px] font-semibold tracking-tight text-ink-primary">Chat com a IA</h2>
-        <p className="mt-2 text-[14px] leading-[1.65] text-ink-secondary">
-          Discuta nomes, plataformas e links. Os cards sugeridos podem ser salvos em um nó do roadmap.
-        </p>
-      </header>
-
-      {error && (
-        <p className="mb-6 shrink-0 border border-danger/35 bg-surface px-3 py-2 text-[13px] text-danger">{error}</p>
-      )}
-
-      <div className="min-h-0 flex-1 space-y-10 overflow-y-auto pb-4">
-        {messages.map((item, index) => (
-          <article
-            key={`${item.role}-${index}`}
-            className={`chat-enter ${item.role === 'user' ? 'ml-16 text-right' : 'mr-10'}`}
-          >
-            {item.role === 'assistant' && (
-              <p className="mb-1.5 font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-ink-tertiary">
-                IA
-              </p>
-            )}
-            <p
-              className={`whitespace-pre-wrap text-[15px] leading-[1.65] ${
-                item.role === 'user' ? 'font-medium text-ink-primary' : 'text-ink-secondary'
-              }`}
-            >
-              {item.content}
-            </p>
-            {item.courses?.length > 0 && (
-              <ul className="mt-5 space-y-5 text-left">
-                {item.courses.map((course, courseIndex) => {
-                  const key = `${index}-${courseIndex}-${course.url}`
-                  const boundNode = course.node_id || picks[key]
-                  return (
-                    <li key={key} className="border-l border-hairline pl-3">
-                      <p className="text-[15px] font-semibold text-ink-primary">{course.nome}</p>
-                      <p className="font-mono text-[11px] font-medium tracking-wide text-ink-tertiary">
-                        {course.plataforma}
-                      </p>
-                      <a
-                        className="mt-1 block truncate text-[12px] font-medium text-ink-secondary underline-offset-4 hover:text-accent hover:underline"
-                        href={course.url}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        {course.url}
-                      </a>
-                      {course.node_id ? (
-                        <p className="mt-2 font-mono text-[11px] font-medium text-ink-tertiary">
-                          {nodeLabel[course.node_id] || course.node_id}
-                        </p>
-                      ) : (
-                        <select
-                          className="mt-2 w-full border-0 border-b border-hairline bg-transparent py-1 font-mono text-[12px] font-medium text-ink-secondary outline-none"
-                          value={picks[key] || ''}
-                          onChange={(event) =>
-                            setPicks((current) => ({ ...current, [key]: event.target.value }))
-                          }
-                        >
-                          <option value="">Escolher nó do roadmap</option>
-                          {nodes.map((node) => (
-                            <option key={node.id} value={node.id}>
-                              {node.title}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                      <button
-                        className="mt-2 text-[13px] font-semibold text-ink-secondary underline-offset-4 hover:text-accent hover:underline disabled:text-ink-tertiary disabled:no-underline"
-                        disabled={Boolean(saved[key]) || !boundNode}
-                        type="button"
-                        onClick={() => saveCourse(course, key)}
-                      >
-                        {saved[key] ? 'Salvo no nó' : 'Salvar no nó'}
-                      </button>
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
-          </article>
-        ))}
-        {loading && (
-          <p className="font-mono text-[11px] font-medium tracking-wide text-ink-tertiary">A IA está pensando…</p>
-        )}
-        <div ref={bottomRef} />
-      </div>
-
-      {messages.length === 1 && (
-        <div className="flex shrink-0 flex-col items-start gap-2 pb-4">
-          {SUGGESTIONS.map((item, index) => (
-            <button
-              key={item}
-              className={`empty-fade text-left text-[13px] font-medium text-ink-secondary underline-offset-4 hover:text-accent hover:underline ${
-                index === 1 ? 'empty-fade-2' : index === 2 ? 'empty-fade-3' : index === 3 ? 'empty-fade-4' : ''
-              }`}
-              type="button"
-              onClick={() => send(item)}
-            >
-              {item}
-            </button>
-          ))}
+    <div className="flex h-full min-h-0 w-full flex-1 bg-white">
+      <ChatSidebar conversations={conversations} activeId={activeId} loading={loadingConversations} query={query} onQueryChange={handleSearch} onSelect={selectConversation} onNew={newConversation} onRename={handleRename} onDelete={handleDelete} />
+      <section className="relative mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col px-5">
+        <header className="empty-fade shrink-0 py-5">
+          <p className="font-sans text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-tertiary">Mentor de cursos</p>
+          <h2 className="mt-1 font-display text-[22px] font-semibold tracking-tight text-ink-primary">{title}</h2>
+        </header>
+        {error ? <p className="error-enter mb-3 shrink-0 rounded-lg border-2 border-danger bg-white px-3 py-2 text-[13px] text-danger">{error}</p> : null}
+        <div className="min-h-0 flex-1 overflow-y-auto pb-4">
+          <div key={activeId || 'new'} className="chat-conversation-enter flex min-h-full flex-col justify-end gap-5">
+            {loadingConversation ? <p className="text-[13px] text-ink-tertiary">Carregando conversa...</p> : null}
+            {!loadingConversation && renderedMessages.map((item, index) => {
+              const children = item.role === 'assistant' && item.courses?.length > 0 ? item.courses.slice(0, 4).map((course, courseIndex) => {
+                const key = `${index}-${courseIndex}-${course.url}`
+                return <CourseCard key={key} course={course} nodes={nodes} nodeLabel={nodeLabel} selectedNodeId={picks[key]} onSelectNode={(nodeId) => setPicks((current) => ({ ...current, [key]: nodeId }))} onSave={(nodeId) => saveCourse(course, key, nodeId)} saved={Boolean(saved[key])} />
+              }) : null
+              return <ChatMessage key={`${item.role}-${index}`} role={item.role} content={item.content}>{children}</ChatMessage>
+            })}
+            {loading ? <TypingMessage /> : null}
+            <div ref={bottomRef} />
+          </div>
         </div>
-      )}
-
-      <form
-        className="mt-auto flex shrink-0 items-center gap-2 border-t border-hairline bg-void py-3"
-        onSubmit={(event) => {
-          event.preventDefault()
-          send(draft)
-        }}
-      >
-        <input
-          className="min-w-0 flex-1 border-0 bg-transparent py-1.5 text-[15px] font-medium text-ink-primary placeholder:text-ink-tertiary"
-          placeholder="Ex.: quero o curso Java COMPLETO da Udemy…"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          minLength={2}
-          required
-        />
-        <button
-          aria-label="Enviar"
-          className="text-accent hover:opacity-80 disabled:text-ink-tertiary"
-          disabled={loading}
-          type="submit"
-        >
-          <ArrowUp size={18} strokeWidth={1.75} />
-        </button>
-      </form>
+        <form className="sticky bottom-0 mt-auto flex shrink-0 items-center gap-2 rounded-xl border-2 border-node-border bg-white p-2 transition-shadow duration-300 focus-within:shadow-soft" onSubmit={(event) => { event.preventDefault(); send(draft) }}>
+          <input className="min-w-0 flex-1 rounded-lg border-0 bg-transparent px-2 py-1.5 text-[15px] font-medium text-ink-primary placeholder:text-ink-tertiary" placeholder={PLACEHOLDERS[placeholderIndex]} value={draft} onChange={(event) => setDraft(event.target.value)} minLength={2} required />
+          <button aria-label="Enviar" className="btn-ink flex h-9 w-9 items-center justify-center rounded-lg bg-black text-white hover:opacity-80 disabled:bg-ink-tertiary" disabled={loading} type="submit"><ArrowUp size={18} strokeWidth={1.75} /></button>
+        </form>
+        <Toast message={toast} />
+      </section>
     </div>
   )
 }

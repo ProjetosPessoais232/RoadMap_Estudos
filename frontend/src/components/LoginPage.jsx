@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { login, register, setSession } from '../api'
+import AppLogo from './AppLogo.jsx'
 
-export default function LoginPage({ onAuthenticated }) {
-  const [mode, setMode] = useState('login')
+export default function LoginPage({ onAuthenticated, onBack, initialMode = 'login' }) {
+  const [mode, setMode] = useState(initialMode)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -25,26 +26,29 @@ export default function LoginPage({ onAuthenticated }) {
   }
 
   return (
-    <div className="grid min-h-screen bg-void lg:grid-cols-2">
-      <aside className="relative hidden overflow-hidden border-r border-hairline bg-surface-raised lg:block" aria-hidden="true">
-        <MapFragment />
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_42%,var(--color-void)_82%)]" />
-        <p className="absolute bottom-8 left-10 font-display text-2xl font-semibold text-ink-tertiary">
-          LMS de Estudos
-        </p>
+    <div className="auth-screen-enter grid min-h-screen bg-void lg:grid-cols-2">
+      <aside className="auth-aside-enter relative hidden overflow-hidden border-r-2 border-node-border bg-surface-raised lg:flex lg:flex-col lg:items-center lg:justify-center" aria-hidden="true">
+        <div className="logo-float">
+          <AppLogo size="xl" showText={false} />
+        </div>
+        <p className="empty-fade mt-6 font-display text-2xl font-semibold text-ink-primary">Paperless</p>
+        <p className="empty-fade empty-fade-2 mt-2 max-w-xs text-center text-[14px] text-ink-secondary">Seu roadmap de aprendizado com mentor de IA</p>
       </aside>
 
       <section className="flex items-center justify-center bg-void px-6 py-16 sm:px-10">
-        <form onSubmit={submit} className="empty-fade w-full max-w-sm">
-          <h1 className="font-display text-[34px] font-semibold tracking-tight text-ink-primary">
+        <form onSubmit={submit} className="auth-form-enter w-full max-w-sm">
+          <div className="mb-8 lg:hidden">
+            <AppLogo size="lg" textClassName="text-[20px]" />
+          </div>
+          <h1 key={mode} className="auth-title-swap font-display text-[34px] font-semibold tracking-tight text-ink-primary">
             {mode === 'login' ? 'Entrar' : 'Criar conta'}
           </h1>
-          <p className="mt-3 text-[15px] leading-[1.65] text-ink-secondary">
+          <p className="empty-fade mt-3 text-[15px] leading-[1.65] text-ink-secondary">
             Progresso, cursos e histórico da IA ficam vinculados ao seu usuário.
           </p>
 
           {error && (
-            <p className="mt-6 border border-danger/35 bg-surface px-3 py-2 text-sm text-danger">{error}</p>
+            <p className="error-enter mt-6 border border-danger/35 bg-surface px-3 py-2 text-sm text-danger">{error}</p>
           )}
 
           <label
@@ -58,7 +62,7 @@ export default function LoginPage({ onAuthenticated }) {
             type="email"
             required
             autoComplete="email"
-            className="mt-2 w-full border-0 border-b border-hairline bg-transparent px-0 py-2 text-[15px] font-medium text-ink-primary outline-none placeholder:text-ink-tertiary"
+            className="mt-2 w-full rounded-lg border-2 border-node-border bg-white px-3 py-2 text-[15px] font-medium text-ink-primary outline-none placeholder:text-ink-tertiary"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
           />
@@ -75,13 +79,13 @@ export default function LoginPage({ onAuthenticated }) {
             required
             minLength={6}
             autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-            className="mt-2 w-full border-0 border-b border-hairline bg-transparent px-0 py-2 text-[15px] font-medium text-ink-primary outline-none placeholder:text-ink-tertiary"
+            className="mt-2 w-full rounded-lg border-2 border-node-border bg-white px-3 py-2 text-[15px] font-medium text-ink-primary outline-none placeholder:text-ink-tertiary"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
           />
 
           <button
-            className="mt-10 w-full bg-accent py-2.5 text-[13px] font-semibold text-white hover:opacity-90 disabled:opacity-50"
+            className="btn-ink mt-10 w-full rounded-lg bg-black py-2.5 text-[13px] font-semibold text-white hover:opacity-90 disabled:opacity-50"
             disabled={loading}
             type="submit"
           >
@@ -95,48 +99,21 @@ export default function LoginPage({ onAuthenticated }) {
           >
             {mode === 'login' ? 'Não tem conta? Cadastre-se' : 'Já tem conta? Entrar'}
           </button>
+          {onBack ? (
+            <button
+              className="mt-3 w-full text-left text-[13px] font-medium text-ink-tertiary hover:text-ink-primary"
+              type="button"
+              onClick={onBack}
+            >
+              Voltar à página inicial
+            </button>
+          ) : null}
 
           <p className="mt-16 font-mono text-[11px] font-medium tracking-[0.06em] text-ink-tertiary">
-            observatório de aprendizado
+            paperless learning
           </p>
         </form>
       </section>
-    </div>
-  )
-}
-
-function MapFragment() {
-  const nodes = [
-    { x: 18, y: 22, role: 'main', w: 128 },
-    { x: 42, y: 34, role: 'option', w: 110 },
-    { x: 58, y: 34, role: 'option', w: 110 },
-    { x: 42, y: 48, role: 'option', w: 110 },
-    { x: 58, y: 48, role: 'option', w: 110 },
-    { x: 28, y: 68, role: 'main', w: 132 },
-    { x: 52, y: 78, role: 'option', w: 118 },
-  ]
-
-  return (
-    <div className="absolute inset-0 origin-center scale-110 blur-[6px]">
-      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-        <line x1="24" y1="14" x2="24" y2="24" className="stroke-ink-tertiary" strokeWidth="0.12" strokeDasharray="0.6 0.7" />
-        <line x1="24" y1="24" x2="48" y2="36" className="stroke-hairline" strokeWidth="0.14" strokeDasharray="0.5 0.7" />
-        <line x1="24" y1="24" x2="64" y2="36" className="stroke-hairline" strokeWidth="0.14" strokeDasharray="0.5 0.7" />
-        <line x1="24" y1="24" x2="48" y2="50" className="stroke-hairline" strokeWidth="0.14" strokeDasharray="0.5 0.7" />
-        <line x1="34" y1="70" x2="58" y2="80" className="stroke-hairline" strokeWidth="0.14" strokeDasharray="0.5 0.7" />
-        <line x1="24" y1="24" x2="34" y2="70" className="stroke-hairline-strong" strokeWidth="0.18" />
-      </svg>
-      {nodes.map((node) => (
-        <div
-          key={`${node.x}-${node.y}`}
-          className={
-            node.role === 'main'
-              ? 'absolute h-9 border-[1.5px] border-accent bg-accent-dim'
-              : 'absolute h-9 border border-hairline bg-surface'
-          }
-          style={{ left: `${node.x}%`, top: `${node.y}%`, width: node.w }}
-        />
-      ))}
     </div>
   )
 }

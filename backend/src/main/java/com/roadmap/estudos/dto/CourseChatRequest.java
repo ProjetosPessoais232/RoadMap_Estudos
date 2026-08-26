@@ -5,12 +5,15 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 import java.util.List;
+import java.util.UUID;
 
 public record CourseChatRequest(
         @NotBlank
         @Size(min = 2, max = 4000)
         String message,
 
-        List<@Valid ChatTurn> history
+        List<@Valid ChatTurn> history,
+
+        UUID conversationId
 ) {
 }

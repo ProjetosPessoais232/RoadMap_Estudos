@@ -7,6 +7,7 @@ import com.roadmap.estudos.dto.ImportNodesResponse;
 import com.roadmap.estudos.dto.NodeResponse;
 import com.roadmap.estudos.dto.UpdateNodeRequest;
 import com.roadmap.estudos.dto.UpdateStatusRequest;
+import com.roadmap.estudos.domain.NodeStyle;
 import com.roadmap.estudos.service.CourseService;
 import com.roadmap.estudos.service.NodeService;
 import jakarta.validation.Valid;
@@ -70,6 +71,11 @@ public class NodeController {
     @PatchMapping("/{id}/status")
     public NodeResponse updateStatus(@PathVariable String id, @Valid @RequestBody UpdateStatusRequest request) {
         return nodeService.updateStatus(id, request);
+    }
+
+    @PatchMapping("/{id}/style")
+    public NodeResponse updateStyle(@PathVariable String id, @RequestBody NodeStyle style) {
+        return nodeService.updateStyle(id, style);
     }
 
     @DeleteMapping("/{id}")

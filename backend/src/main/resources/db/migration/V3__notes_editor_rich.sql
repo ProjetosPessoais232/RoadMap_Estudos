@@ -1,0 +1,5 @@
+ALTER TABLE study_notes
+    ADD COLUMN IF NOT EXISTS tags JSONB NOT NULL DEFAULT '[]'::jsonb;
+
+ALTER TABLE study_notes
+    ADD COLUMN IF NOT EXISTS review_flag BOOLEAN NOT NULL DEFAULT false;

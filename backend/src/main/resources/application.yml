@@ -3,7 +3,7 @@ server:
 
 spring:
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/roadmap}
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5434/roadmap}
     username: ${DATABASE_USER:roadmap}
     password: ${DATABASE_PASSWORD:roadmap}
   jpa:
@@ -13,6 +13,9 @@ spring:
     properties:
       hibernate:
         format_sql: true
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
 
 gemini:
   api-key: ${GEMINI_API_KEY:}

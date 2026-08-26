@@ -1,9 +1,10 @@
 package com.roadmap.estudos.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.roadmap.estudos.domain.AiRecommendation;
+import com.roadmap.estudos.domain.ChatConversation;
+import com.roadmap.estudos.domain.ChatMessage;
 import com.roadmap.estudos.domain.RoadmapNode;
 import com.roadmap.estudos.domain.UserAccount;
 import com.roadmap.estudos.dto.ArchitectResponse;
@@ -19,25 +20,21 @@ import com.roadmap.estudos.repository.NodeRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.ResourceAccessException;
-import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.io.IOException;
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -47,39 +44,30 @@ public class GeminiArchitectService {
     private final NodeRepository nodeRepository;
     private final AiRecommendationRepository recommendationRepository;
     private final CurrentUserService currentUserService;
+    private final ChatConversationService chatConversationService;
+    private final GeminiClient geminiClient;
     private final ObjectMapper objectMapper;
-    private final String apiKey;
-    private final String model;
     private final String systemPrompt;
     private final String chatPrompt;
-    private final RestClient restClient;
 
     public GeminiArchitectService(
             NodeRepository nodeRepository,
             AiRecommendationRepository recommendationRepository,
             CurrentUserService currentUserService,
+            ChatConversationService chatConversationService,
+            GeminiClient geminiClient,
             ObjectMapper objectMapper,
-            @Value("${gemini.api-key:}") String apiKey,
-            @Value("${gemini.model:gemini-2.5-flash}") String model,
-            @Value("${gemini.timeout-seconds:30}") int timeoutSeconds,
             @Value("classpath:prompts/architect-system.txt") Resource promptResource,
             @Value("classpath:prompts/course-chat-system.txt") Resource chatPromptResource
     ) throws IOException {
         this.nodeRepository = nodeRepository;
         this.recommendationRepository = recommendationRepository;
         this.currentUserService = currentUserService;
+        this.chatConversationService = chatConversationService;
+        this.geminiClient = geminiClient;
         this.objectMapper = objectMapper;
-        this.apiKey = apiKey;
-        this.model = model;
         this.systemPrompt = promptResource.getContentAsString(StandardCharsets.UTF_8);
         this.chatPrompt = chatPromptResource.getContentAsString(StandardCharsets.UTF_8);
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(Duration.ofSeconds(15));
-        factory.setReadTimeout(Duration.ofSeconds(Math.max(timeoutSeconds, 45)));
-        this.restClient = RestClient.builder()
-                .baseUrl("https://generativelanguage.googleapis.com")
-                .requestFactory(factory)
-                .build();
     }
 
     @Transactional
@@ -95,9 +83,7 @@ public class GeminiArchitectService {
         if (nodes.isEmpty()) {
             throw new ApiException(HttpStatus.CONFLICT, "Cadastre nós no roadmap antes de consultar a IA");
         }
-        if (apiKey == null || apiKey.isBlank()) {
-            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "GEMINI_API_KEY não configurada");
-        }
+        geminiClient.requireKey();
 
         Set<String> validIds = nodes.stream()
                 .map(RoadmapNode::getId)
@@ -110,14 +96,14 @@ public class GeminiArchitectService {
             status.accept("Consultando Gemini Flash…");
             String raw = callGemini(idea.trim(), catalog);
             status.accept("Validando o JSON da arquitetura…");
-            ArchitectResponse parsed = objectMapper.readValue(stripFences(raw), ArchitectResponse.class);
+            ArchitectResponse parsed = objectMapper.readValue(geminiClient.stripFences(raw), ArchitectResponse.class);
             ArchitectResponse sanitized = sanitize(parsed, validIds);
             saveHistory(user, idea.trim(), sanitized);
             return sanitized;
         } catch (ApiException ex) {
             throw ex;
         } catch (RestClientResponseException ex) {
-            throw mapGeminiHttp(ex);
+            throw geminiClient.mapGeminiHttp(ex);
         } catch (ResourceAccessException ex) {
             String cause = ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : ex.getMessage();
             throw new ApiException(
@@ -125,18 +111,18 @@ public class GeminiArchitectService {
                     "Falha de rede ao consultar o Gemini Flash (" + cause + ")"
             );
         } catch (RestClientException ex) {
-            throw mapGeminiHttpOrNetwork(ex);
+            throw geminiClient.mapGeminiHttpOrNetwork(ex);
         } catch (Exception ex) {
             throw new ApiException(HttpStatus.BAD_GATEWAY, "A IA não devolveu um JSON válido. Tente novamente com uma ideia mais objetiva.");
         }
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public CourseChatResponse chatCourses(CourseChatRequest request) {
         currentUserService.require();
-        if (apiKey == null || apiKey.isBlank()) {
-            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "GEMINI_API_KEY não configurada");
-        }
+        geminiClient.requireKey();
+        String message = request.message().trim();
+        ChatConversation conversation = chatConversationService.openForMessage(request.conversationId(), message);
         List<RoadmapNode> nodes = nodeRepository.findAll();
         Set<String> validIds = nodes.stream()
                 .map(RoadmapNode::getId)
@@ -151,9 +137,9 @@ public class GeminiArchitectService {
         for (ChatTurn turn : history.subList(start, history.size())) {
             appendTurn(contents, turn.role(), turn.content());
         }
-        appendTurn(contents, "user", request.message().trim());
+        appendTurn(contents, "user", message);
         if (contents.isEmpty()) {
-            contents.add(userPart(request.message().trim()));
+            contents.add(userPart(message));
         }
 
         Map<String, Object> body = new LinkedHashMap<>();
@@ -168,18 +154,26 @@ public class GeminiArchitectService {
         ));
 
         try {
-            String raw = generateJson(body);
-            CourseChatResponse parsed = objectMapper.readValue(stripFences(raw), CourseChatResponse.class);
-            return sanitizeChat(parsed, validIds);
+            String raw = geminiClient.generateJson(body);
+            CourseChatResponse parsed = objectMapper.readValue(geminiClient.stripFences(raw), CourseChatResponse.class);
+            CourseChatResponse sanitized = sanitizeChat(parsed, validIds, conversation.getId());
+            chatConversationService.append(conversation, ChatMessage.Role.USER, message, null);
+            chatConversationService.append(
+                    conversation,
+                    ChatMessage.Role.ASSISTANT,
+                    sanitized.resposta(),
+                    sanitized.cursosSugeridos()
+            );
+            return sanitized;
         } catch (ApiException ex) {
             throw ex;
         } catch (RestClientResponseException ex) {
-            throw mapGeminiHttp(ex);
+            throw geminiClient.mapGeminiHttp(ex);
         } catch (ResourceAccessException ex) {
             String cause = ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : ex.getMessage();
             throw new ApiException(HttpStatus.BAD_GATEWAY, "Falha de rede ao consultar o Gemini Flash (" + cause + ")");
         } catch (RestClientException ex) {
-            throw mapGeminiHttpOrNetwork(ex);
+            throw geminiClient.mapGeminiHttpOrNetwork(ex);
         } catch (Exception ex) {
             throw new ApiException(
                     HttpStatus.BAD_GATEWAY,
@@ -224,7 +218,7 @@ public class GeminiArchitectService {
         }
     }
 
-    private CourseChatResponse sanitizeChat(CourseChatResponse parsed, Set<String> validIds) {
+    private CourseChatResponse sanitizeChat(CourseChatResponse parsed, Set<String> validIds, UUID conversationId) {
         String reply = parsed.resposta() == null || parsed.resposta().isBlank()
                 ? "Não consegui montar uma resposta agora. Tente perguntar de outro jeito."
                 : parsed.resposta();
@@ -259,7 +253,7 @@ public class GeminiArchitectService {
                 }
             }
         }
-        return new CourseChatResponse(reply, filtered);
+        return new CourseChatResponse(reply, filtered, conversationId);
     }
 
     private Map<String, Object> chatSchema() {
@@ -329,54 +323,6 @@ public class GeminiArchitectService {
         }
     }
 
-    private ApiException mapGeminiHttpOrNetwork(RestClientException ex) {
-        if (ex instanceof RestClientResponseException responseException) {
-            return mapGeminiHttp(responseException);
-        }
-        return new ApiException(HttpStatus.BAD_GATEWAY, "Falha de rede ao consultar o Gemini Flash");
-    }
-
-    private ApiException mapGeminiHttp(RestClientResponseException ex) {
-        int code = ex.getStatusCode().value();
-        String body = ex.getResponseBodyAsString();
-        if (code == 404) {
-            return new ApiException(
-                    HttpStatus.BAD_GATEWAY,
-                    "Modelo Gemini indisponível. O app agora usa gemini-2.5-flash; reinicie o backend."
-            );
-        }
-        if (code == 429 || (body != null && body.contains("RESOURCE_EXHAUSTED"))) {
-            return new ApiException(HttpStatus.TOO_MANY_REQUESTS, "Cota do Gemini esgotada. Aguarde ou verifique o plano da API.");
-        }
-        if (code == 400 && body != null && body.contains("API_KEY")) {
-            return new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Chave do Gemini inválida.");
-        }
-        if (code == 400) {
-            return new ApiException(HttpStatus.BAD_GATEWAY, geminiClientMessage(body, code));
-        }
-        if (code == 401 || code == 403) {
-            return new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Chave do Gemini inválida ou sem permissão.");
-        }
-        return new ApiException(HttpStatus.BAD_GATEWAY, "O Gemini recusou a requisição (HTTP " + code + ").");
-    }
-
-    private String geminiClientMessage(String body, int code) {
-        if (body == null || body.isBlank()) {
-            return "O Gemini recusou a requisição (HTTP " + code + ").";
-        }
-        try {
-            JsonNode root = objectMapper.readTree(body);
-            String message = root.path("error").path("message").asText("");
-            if (!message.isBlank()) {
-                String shortMessage = message.length() > 180 ? message.substring(0, 180) + "…" : message;
-                return "O Gemini recusou a requisição: " + shortMessage;
-            }
-        } catch (Exception ignored) {
-            // usa a mensagem padrão
-        }
-        return "O Gemini recusou a requisição (HTTP " + code + ").";
-    }
-
     private String callGemini(String idea, List<Map<String, String>> catalog) throws Exception {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("system_instruction", Map.of("parts", List.of(Map.of("text", systemPrompt))));
@@ -390,59 +336,7 @@ public class GeminiArchitectService {
                 "responseMimeType", "application/json",
                 "responseSchema", responseSchema()
         ));
-        return generateJson(body);
-    }
-
-    private String generateJson(Map<String, Object> body) {
-        List<String> models = List.of(
-                model,
-                "gemini-2.5-flash",
-                "gemini-3.5-flash",
-                "gemini-flash-latest"
-        );
-
-        RestClientResponseException lastHttp = null;
-        for (String candidate : models.stream().distinct().toList()) {
-            try {
-                return invokeGemini(candidate, body);
-            } catch (RestClientResponseException ex) {
-                lastHttp = ex;
-                int code = ex.getStatusCode().value();
-                if (code == 404 || code == 400) {
-                    continue;
-                }
-                throw ex;
-            }
-        }
-        if (lastHttp != null) {
-            throw lastHttp;
-        }
-        throw new ApiException(HttpStatus.BAD_GATEWAY, "Nenhum modelo Gemini Flash disponível para esta chave");
-    }
-
-    private String invokeGemini(String candidate, Map<String, Object> body) {
-        String payload = restClient.post()
-                .uri(URI.create("https://generativelanguage.googleapis.com/v1beta/models/" + candidate + ":generateContent"))
-                .header("x-goog-api-key", apiKey)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(body)
-                .retrieve()
-                .body(String.class);
-
-        try {
-            JsonNode root = objectMapper.readTree(payload);
-            JsonNode first = root.path("candidates").path(0);
-            JsonNode text = first.path("content").path("parts").path(0).path("text");
-            if (text.isMissingNode() || text.asText().isBlank()) {
-                String reason = first.path("finishReason").asText("sem texto");
-                throw new ApiException(HttpStatus.BAD_GATEWAY, "A IA não devolveu um JSON válido (" + reason + ")");
-            }
-            return text.asText();
-        } catch (ApiException ex) {
-            throw ex;
-        } catch (Exception ex) {
-            throw new ApiException(HttpStatus.BAD_GATEWAY, "A IA não devolveu um JSON válido");
-        }
+        return geminiClient.generateJson(body);
     }
 
     private Map<String, Object> responseSchema() {
@@ -490,17 +384,5 @@ public class GeminiArchitectService {
                 new StackRecomendada(stack.frontend(), stack.backend(), stack.database(), outros),
                 filtered
         );
-    }
-
-    private String stripFences(String raw) {
-        String trimmed = raw.trim();
-        if (trimmed.startsWith("```")) {
-            int start = trimmed.indexOf('\n');
-            int end = trimmed.lastIndexOf("```");
-            if (start > 0 && end > start) {
-                return trimmed.substring(start + 1, end).trim();
-            }
-        }
-        return trimmed;
     }
 }

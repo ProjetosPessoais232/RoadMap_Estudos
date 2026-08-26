@@ -1,4 +1,5 @@
 import dagre from '@dagrejs/dagre'
+import { resolveStyle } from './nodeStyle.js'
 
 export const NODE_W = 176
 export const NODE_H = 56
@@ -8,6 +9,15 @@ export const OPTION_OFFSET_X = 220
 
 export function needsAutoLayout(nodes) {
   return nodes.length > 0 && nodes.every((node) => !node.posX && !node.posY)
+}
+
+export function applyLoadedLayout(nodes) {
+  if (!needsAutoLayout(nodes)) {
+    return nodes
+  }
+  const placed = layoutWithDagre(nodes)
+  const noStyle = nodes.every((node) => !node.style)
+  return noStyle ? layoutOptionClusters(placed) : placed
 }
 
 export function nextOptionPosition(parent, childCount) {
@@ -35,7 +45,7 @@ export function layoutWithDagre(apiNodes) {
 
   dagre.layout(graph)
 
-  const placed = apiNodes.map((node) => {
+  return apiNodes.map((node) => {
     const position = graph.node(node.id)
     return {
       ...node,
@@ -43,8 +53,6 @@ export function layoutWithDagre(apiNodes) {
       posY: position.y - NODE_H / 2,
     }
   })
-
-  return layoutOptionClusters(placed)
 }
 
 export function layoutOptionClusters(apiNodes) {
@@ -82,18 +90,26 @@ export function toFlowElements(apiNodes, highlightedIds) {
   const nodes = [
     ...originStem(apiNodes),
     ...clusterTitles(apiNodes),
-    ...apiNodes.map((node) => ({
-      id: node.id,
-      type: 'tech',
-      position: { x: node.posX ?? 0, y: node.posY ?? 0 },
-      data: {
-        title: node.title,
-        nodeId: node.id,
-        status: node.status,
-        highlighted: highlight.has(node.id),
-        role: nodeRole(node, parentIds),
-      },
-    })),
+    ...apiNodes.map((node) => {
+      const role = nodeRole(node, parentIds)
+      const style = resolveStyle(node.style, role)
+      return {
+        id: node.id,
+        type: 'tech',
+        position: { x: node.posX ?? 0, y: node.posY ?? 0 },
+        width: style.width,
+        height: style.height,
+        style: { width: style.width, height: style.height },
+        data: {
+          title: node.title,
+          nodeId: node.id,
+          status: node.status,
+          highlighted: highlight.has(node.id),
+          role,
+          style: node.style || null,
+        },
+      }
+    }),
   ]
 
   const edges = apiNodes

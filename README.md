@@ -1,4 +1,4 @@
-# Roadmap de Estudos
+# Paperless
 
 LMS pessoal inspirado no roadmap.sh: árvore de tecnologias, progresso por usuário, cursos reais e um Arquiteto de Software (Gemini Flash) que destaca o que estudar.
 
@@ -24,15 +24,16 @@ Na raiz do repositório:
 docker compose up -d
 ```
 
+O Postgres do Docker fica em **localhost:5434** (a porta 5432 costuma estar ocupada por um PostgreSQL instalado no Windows).
+
 Backend:
 
 ```bash
 cd backend
-set GEMINI_API_KEY=sua_chave
+copy .env.example .env
+# edite backend/.env e coloque GEMINI_API_KEY
 .\mvnw.cmd spring-boot:run
 ```
-
-No Linux/macOS use `export GEMINI_API_KEY=sua_chave` e `./mvnw spring-boot:run`.
 
 Frontend:
 

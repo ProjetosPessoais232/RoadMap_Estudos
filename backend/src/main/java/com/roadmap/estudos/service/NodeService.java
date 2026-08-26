@@ -1,5 +1,6 @@
 package com.roadmap.estudos.service;
 
+import com.roadmap.estudos.domain.NodeStyle;
 import com.roadmap.estudos.domain.ProgressStatus;
 import com.roadmap.estudos.domain.RoadmapNode;
 import com.roadmap.estudos.domain.UserAccount;
@@ -24,6 +25,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -68,17 +70,19 @@ public class NodeService {
     @Transactional
     public NodeResponse create(CreateNodeRequest request) {
         currentUserService.require();
-        if (nodeRepository.existsById(request.id())) {
-            throw new ApiException(HttpStatus.CONFLICT, "Já existe um nó com o id " + request.id());
+        String id = resolveId(request.id());
+        if (nodeRepository.existsById(id)) {
+            throw new ApiException(HttpStatus.CONFLICT, "Já existe um nó com o id " + id);
         }
 
         RoadmapNode node = new RoadmapNode();
-        node.setId(request.id());
+        node.setId(id);
         node.setTitle(request.title());
         node.setDescription(request.description());
         node.setParent(resolveParent(request.parentId()));
         node.setPosX(request.posX() != null ? request.posX() : 0.0);
         node.setPosY(request.posY() != null ? request.posY() : 0.0);
+        node.setStyle(request.style() != null ? request.style().validated() : null);
         return NodeResponse.from(nodeRepository.save(node), ProgressStatus.NOT_STARTED);
     }
 
@@ -97,7 +101,8 @@ public class NodeService {
             progress = false;
             List<CreateNodeRequest> next = new ArrayList<>();
             for (CreateNodeRequest item : pending) {
-                if (existing.contains(item.id())) {
+                String id = resolveId(item.id());
+                if (existing.contains(id)) {
                     skipped++;
                     progress = true;
                     continue;
@@ -108,14 +113,15 @@ public class NodeService {
                     continue;
                 }
                 RoadmapNode node = new RoadmapNode();
-                node.setId(item.id());
+                node.setId(id);
                 node.setTitle(item.title());
                 node.setDescription(item.description());
                 node.setParent(resolveParent(parentId));
                 node.setPosX(item.posX() != null ? item.posX() : 0.0);
                 node.setPosY(item.posY() != null ? item.posY() : 0.0);
+                node.setStyle(item.style() != null ? item.style().validated() : null);
                 nodeRepository.save(node);
-                existing.add(item.id());
+                existing.add(id);
                 created++;
                 progress = true;
             }
@@ -137,6 +143,14 @@ public class NodeService {
             node.setPosY(request.posY());
         }
         node.setParent(resolveParentAvoidingCycle(id, request.parentId()));
+        return getById(id);
+    }
+
+    @Transactional
+    public NodeResponse updateStyle(String id, NodeStyle style) {
+        currentUserService.require();
+        RoadmapNode node = findOrThrow(id);
+        node.setStyle(style != null ? style.validated() : null);
         return getById(id);
     }
 
@@ -203,5 +217,16 @@ public class NodeService {
             cursor = cursor.getParent();
         }
         return parent;
+    }
+
+    private String resolveId(String requested) {
+        if (requested != null && !requested.isBlank()) {
+            return requested.trim().toLowerCase();
+        }
+        String id;
+        do {
+            id = "n-" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        } while (nodeRepository.existsById(id));
+        return id;
     }
 }

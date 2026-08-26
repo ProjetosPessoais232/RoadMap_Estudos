@@ -9,6 +9,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "nodes")
@@ -37,6 +39,10 @@ public class RoadmapNode {
 
     @Column(name = "pos_y")
     private Double posY = 0.0;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private NodeStyle style;
 
     public String getId() {
         return id;
@@ -92,5 +98,13 @@ public class RoadmapNode {
 
     public void setPosY(Double posY) {
         this.posY = posY;
+    }
+
+    public NodeStyle getStyle() {
+        return style;
+    }
+
+    public void setStyle(NodeStyle style) {
+        this.style = style;
     }
 }
